@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      width: 300px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-size: 14px;
+      color: #374151;
+      background: #f9fafb;
+    }
+
+    header {
+      padding: 14px 16px;
+      background: white;
+      border-bottom: 1px solid #e5e7eb;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    header span { font-weight: 600; color: #111827; }
+
+    #status {
+      font-size: 11px;
+      padding: 3px 8px;
+      border-radius: 99px;
+      background: #f3f4f6;
+      color: #6b7280;
+      font-weight: 500;
+    }
+
+    .container { padding: 16px; }
+
+    .card {
+      background: white;
+      border-radius: 12px;
+      padding: 16px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      border: 1px solid #e5e7eb;
+    }
+
+    .row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 4px;
+    }
+
+    .row p { font-size: 13px; color: #6b7280; }
+
+    /* Switch Style */
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 44px;
+      height: 24px;
+    }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-color: #e5e7eb;
+      transition: .4s;
+      border-radius: 24px;
+    }
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 18px; width: 18px;
+      left: 3px; bottom: 3px;
+      background-color: white;
+      transition: .4s;
+      border-radius: 50%;
+    }
+    input:checked + .slider { background-color: #374151; }
+    input:checked + .slider:before { transform: translateX(20px); }
+
+    .settings-section { margin-top: 16px; }
+
+    label {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #4b5563;
+      text-transform: uppercase;
+      letter-spacing: 0.025em;
+    }
+
+    select, input[type="text"], input[type="password"] {
+      width: 100%;
+      padding: 10px;
+      border-radius: 8px;
+      border: 1px solid #d1d5db;
+      font-size: 14px;
+      outline: none;
+      margin-bottom: 12px;
+      background: white;
+    }
+
+    select:focus, input:focus { border-color: #374151; }
+
+    button {
+      width: 100%;
+      padding: 10px;
+      border-radius: 8px;
+      border: none;
+      font-weight: 600;
+      cursor: pointer;
+      font-size: 13px;
+      transition: background 0.2s;
+    }
+
+    #save-btn { background: #374151; color: white; margin-top: 4px; }
+    #save-btn:hover { background: #1f2937; }
+
+    #delete-btn {
+      background: #fee2e2;
+      color: #b91c1c;
+      margin-top: 8px;
+      display: none;
+    }
+    #delete-btn:hover { background: #fecaca; }
+
+    #info-card {
+      background: white;
+      border-radius: 12px;
+      padding: 16px;
+      border: 1px solid #e5e7eb;
+      margin-top: 12px;
+      display: none;
+    }
+
+    .provider-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      background: #f3f4f6;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 500;
+      color: #374151;
+      margin-top: 4px;
+    }
+
+    #msg {
+      margin-top: 10px;
+      text-align: center;
+      font-size: 12px;
+      font-weight: 500;
+    }
+    .success { color: #059669; }
+    .error { color: #dc2626; }
+  </style>
+</head>
+<body>
+  <header>
+    <span>PageAI</span>
+    <div id="status">Desativado</div>
+  </header>
+
+  <div class="container">
+    <div class="card">
+      <div class="row">
+        <span>Ativar nesta aba</span>
+        <label class="switch">
+          <input type="checkbox" id="toggle">
+          <span class="slider"></span>
+        </label>
+      </div>
+      <p id="subtext">Use alt + A para alternar rápido</p>
+    </div>
+
+    <!-- Seção de Configuração (Visível quando NÃO tem chave) -->
+    <div id="setup-section" class="settings-section">
+      <label for="api-provider">IA Provedor</label>
+      <select id="api-provider">
+        <option value="anthropic">Anthropic (Claude)</option>
+        <option value="openai">OpenAI (GPT-4)</option>
+      </select>
+      
+      <label for="api-key">API Key</label>
+      <input type="password" id="api-key" placeholder="Insira sua chave aqui...">
+      
+      <button id="save-btn">Configurar PageAI</button>
+    </div>
+
+    <!-- Seção de Info (Visível quando JÁ tem chave) -->
+    <div id="info-card">
+      <label>Configurado com:</label>
+      <div id="active-provider" class="provider-badge">Anthropic</div>
+      <p style="font-size: 11px; color: #9ca3af; margin-top: 8px;">Sua chave está armazenada de forma segura localmente.</p>
+      <button id="delete-btn">Excluir Chave e Trocar Provider</button>
+    </div>
+
+    <div id="msg"></div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

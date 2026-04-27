@@ -1,0 +1,24 @@
+{
+  "manifest_version": 3,
+  "name": "PageAI",
+  "version": "1.0",
+  "description": "Seu agente de IA pessoal para navegar na web, responder perguntas e realizar tarefas.",
+  "permissions": ["activeTab", "storage", "scripting"],
+  "host_permissions": [
+    "https://api.anthropic.com/*",
+    "https://api.openai.com/*"
+  ],
+  "action": {
+    "default_popup": "popup/popup.html"
+  },
+  "background": {
+    "service_worker": "background/service_worker.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content/content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}
