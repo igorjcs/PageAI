@@ -1,7 +1,7 @@
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.type === 'PERGUNTA') {
     responderPergunta(msg.pergunta, msg.contexto).then(sendResponse);
-    return true; // mantém o canal aberto para resposta assíncrona
+    return true;
   }
 
   if (msg.type === 'DESATIVAR') {

@@ -1,5 +1,4 @@
 (function() {
-  // Evita múltiplas instâncias
   if (window.pageaiInitialized) {
     console.log("PageAI já inicializado nesta aba.");
     return;
@@ -8,7 +7,6 @@
 
   let chatBox = null;
 
-  // Ouvinte de mensagens do popup ou background
   chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     try {
       if (msg.type === 'TOGGLE') {
@@ -73,7 +71,6 @@
       }
     });
 
-    // Focar no input ao abrir
     setTimeout(() => input.focus(), 100);
   }
 
@@ -157,7 +154,6 @@
   }
 
   function extrairContexto() {
-    // Pega o texto principal ignorando scripts e estilos
     const clone = document.body.cloneNode(true);
     const elementsToRemove = clone.querySelectorAll('script, style, nav, footer');
     elementsToRemove.forEach(el => el.remove());

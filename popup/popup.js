@@ -9,7 +9,6 @@ const setupSection = document.getElementById('setup-section');
 const infoCard = document.getElementById('info-card');
 const activeProviderBadge = document.getElementById('active-provider');
 
-// Ao abrir o popup, carrega o estado salvo
 chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
   if (!tab) return;
   chrome.storage.local.get(['apiKey', 'apiProvider', `active_${tab.id}`], (data) => {
@@ -32,7 +31,6 @@ chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
   });
 });
 
-// Toggle ativado/desativado
 toggle.addEventListener('change', () => {
   chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
     if (!tab) return;
