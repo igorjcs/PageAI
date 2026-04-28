@@ -17,43 +17,57 @@ async function responderPergunta(pergunta, contexto) {
   const apiKey = data.apiKey;
   const apiProvider = data.apiProvider || 'anthropic';
 
-  if (!apiKey) return { texto: 'API Key não configurada. Abra o popup e salve sua chave.' };
+  if (!apiKey) return { texto: '⚠️ API Key não configurada. Abra o popup e salve sua chave.' };
 
-  // Timeout de 15 segundos para evitar o "Analisando..." infinito
+  // Timeout de 30 segundos (aumentado para análises longas)
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 15000);
+  const timeoutId = setTimeout(() => controller.abort(), 30000);
 
   try {
     let resultado;
-    switch (apiProvider) {
-      case 'anthropic': resultado = await responderAnthropic(pergunta, contexto, apiKey, controller.signal); break;
-      case 'openai': resultado = await responderOpenAI(pergunta, contexto, apiKey, controller.signal); break;
-      case 'gemini': resultado = await responderGemini(pergunta, contexto, apiKey, controller.signal); break;
-      case 'abacus': resultado = await responderAbacus(pergunta, contexto, apiKey, controller.signal); break;
-      default: resultado = { texto: 'Provedor de API desconhecido.' };
-    }
+    // Tenta executar a chamada e garante que nunca fique "pendente"
+    const apiPromise = (async () => {
+      switch (apiProvider) {
+        case 'anthropic': return await responderAnthropic(pergunta, contexto, apiKey, controller.signal);
+        case 'openai': return await responderOpenAI(pergunta, contexto, apiKey, controller.signal);
+        case 'gemini': return await responderGemini(pergunta, contexto, apiKey, controller.signal);
+        case 'abacus': return await responderAbacus(pergunta, contexto, apiKey, controller.signal);
+        default: return { texto: '❌ Provedor de API desconhecido.' };
+      }
+    })();
+
+    resultado = await apiPromise;
     clearTimeout(timeoutId);
+    
+    if (!resultado || !resultado.texto) {
+      throw new Error("Resposta da API vazia ou inválida.");
+    }
+    
     return resultado;
   } catch (err) {
     clearTimeout(timeoutId);
+    console.error("Erro no Service Worker:", err);
+    
     if (err.name === 'AbortError') {
-      return { texto: '⚠️ A resposta demorou muito. Verifique sua conexão ou se a chave de API é válida.' };
+      return { texto: '⌛ A análise está demorando mais do que o esperado. O LinkedIn é uma página pesada, tente simplificar a pergunta ou recarregar a página.' };
     }
-    return { texto: `Erro de conexão: ${err.message}` };
+    
+    return { texto: `❌ Não consegui processar sua solicitação agora. (Erro: ${err.message})` };
   }
 }
 
-const PROMPT_SISTEMA = (contexto) => `Você é um assistente especialista em análise de páginas web.
+const PROMPT_SISTEMA = (contexto) => `Você é o PageAI, um assistente especialista em análise de páginas web e perfis profissionais.
 
 OBJETIVO PRINCIPAL:
-- Responder perguntas sobre a página atual usando o contexto fornecido.
-- Se a resposta não estiver na página, você DEVE buscar em seu conhecimento geral, avisando o usuário.
+- Analisar TODO o contexto fornecido da página atual.
+- Se o usuário pedir melhorias no perfil (LinkedIn), você deve ser crítico e dar dicas reais baseadas no que está lendo (Sobre, Experiência, Competências).
+- Se a informação NÃO estiver no contexto, você deve dizer claramente: "Não encontrei essa informação específica na página, mas baseando-me em perfis similares..."
 
-REGRAS DE RESPOSTA:
+REGRAS CRÍTICAS:
 1. Responda SEMPRE em português (pt-BR).
-2. Tente identificar o tema central da página (ex: se é o site do Flamengo, de uma loja, etc).
-3. Seja direto. Se o usuário perguntar "qual o time dessa página?", analise o título, URL e conteúdo para responder (ex: "Esta página é do Clube de Regatas do Flamengo").
-4. Se usar conhecimento externo à página, adicione ao final: "(Nota: Informação de fontes externas)".
+2. Se você encontrar um erro ou não conseguir ler a página, NÃO fique em silêncio. Responda explicando o que você consegue ver.
+3. Use o conhecimento externo para complementar, mas priorize os dados da página.
+4. Mantenha um tom profissional e prestativo.
 
 CONTEXTO DA PÁGINA ATUAL:
 ${contexto}`;
