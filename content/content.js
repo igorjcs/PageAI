@@ -13,21 +13,28 @@
 
   function mostrarChat() {
     if (document.getElementById('pageai-chat')) {
-      document.getElementById('pageai-chat').style.display = 'flex';
+      document.getElementById('pageai-chat').style.display = 'block';
       return;
     }
 
+    // Criamos um contêiner HOST para isolar o chat do resto da página via Shadow DOM
     chatBox = document.createElement('div');
     chatBox.id = 'pageai-chat';
-    chatBox.innerHTML = `
+    document.body.appendChild(chatBox);
+
+    const shadow = chatBox.attachShadow({ mode: 'open' });
+    
+    const wrapper = document.createElement('div');
+    wrapper.id = 'pageai-wrapper-outer';
+    wrapper.innerHTML = `
       <div id="pageai-header">
-        <div style="display: flex; align-items: center; gap: 8px;">
-          <div style="width: 24px; height: 24px; background: rgba(0,0,0,0.1); border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 10px; color: #444;">AI</div>
+        <div class="header-info">
+          <div class="logo">AI</div>
           <span>PageAI</span>
         </div>
-        <div style="display: flex; gap: 10px; align-items: center;">
-          <button id="pageai-minimize">−</button>
-          <button id="pageai-close">✕</button>
+        <div class="header-actions">
+          <button id="pageai-minimize" title="Minimizar">−</button>
+          <button id="pageai-close" title="Fechar">✕</button>
         </div>
       </div>
       <div id="pageai-body-wrapper">
@@ -39,41 +46,134 @@
       </div>
     `;
 
-    document.body.appendChild(chatBox);
-    injetarEstilos();
+    const style = document.createElement('style');
+    style.textContent = `
+      #pageai-wrapper-outer {
+        position: fixed;
+        bottom: 24px;
+        right: 24px;
+        width: 360px;
+        height: 480px;
+        background: #fff;
+        border-radius: 16px;
+        display: flex;
+        flex-direction: column;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        box-shadow: 0 12px 48px rgba(0,0,0,0.15);
+        border: 1px solid rgba(0,0,0,0.1);
+        overflow: hidden;
+        transition: height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        z-index: 2147483647;
+      }
+      #pageai-header {
+        padding: 14px 18px;
+        background: #f3f4f6;
+        color: #1f2937;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-weight: 600;
+        border-bottom: 1px solid #e5e7eb;
+      }
+      .header-info { display: flex; align-items: center; gap: 8px; }
+      .logo {
+        width: 24px; height: 24px;
+        background: rgba(0,0,0,0.1);
+        border-radius: 6px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 10px;
+        color: #444;
+      }
+      .header-actions button {
+        background: none; border: none; color: #6b7280;
+        cursor: pointer; font-size: 18px; padding: 4px;
+      }
+      #pageai-body-wrapper { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: #fff; }
+      #pageai-messages {
+        flex: 1; overflow-y: auto; padding: 20px 16px;
+        display: flex; flex-direction: column; gap: 12px;
+        background: #fff; scroll-behavior: smooth;
+      }
+      .pageai-msg {
+        max-width: 85%; padding: 10px 14px;
+        border-radius: 14px; font-size: 14px; line-height: 1.5;
+        word-wrap: break-word;
+      }
+      .pageai-msg-user {
+        background: #374151; color: #fff;
+        align-self: flex-end; border-bottom-right-radius: 2px;
+      }
+      .pageai-msg-ai {
+        background: #f3f4f6; color: #1f2937;
+        align-self: flex-start; border-bottom-left-radius: 2px;
+        border: 1px solid #e5e7eb;
+      }
+      #pageai-input-row {
+        padding: 12px 16px; background: #fff;
+        border-top: 1px solid #f0f0f0;
+        display: flex; gap: 10px; align-items: flex-end;
+      }
+      #pageai-input {
+        flex: 1; padding: 10px; border: 1px solid #e2e8f0;
+        border-radius: 10px; outline: none; resize: none;
+        max-height: 120px; font-family: inherit; font-size: 14px;
+        color: #000; background: #fff; line-height: 1.4;
+      }
+      #pageai-send {
+        width: 36px; height: 36px; background: #374151;
+        color: #fff; border: none; border-radius: 50%;
+        cursor: pointer; display: flex; align-items: center; justify-content: center;
+      }
+    `;
 
-    const input = document.getElementById('pageai-input');
+    shadow.appendChild(style);
+    shadow.appendChild(wrapper);
+
+    const input = shadow.getElementById('pageai-input');
     input.addEventListener('input', function() {
       this.style.height = 'auto';
       this.style.height = Math.min(this.scrollHeight, 120) + 'px';
     });
 
-    document.getElementById('pageai-close').addEventListener('click', () => {
+    shadow.getElementById('pageai-close').addEventListener('click', () => {
       esconderChat();
       chrome.runtime.sendMessage({ type: 'DESATIVAR' });
     });
 
-    document.getElementById('pageai-minimize').addEventListener('click', toggleMinimizar);
-    document.getElementById('pageai-send').addEventListener('click', enviarMensagem);
-    input.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); enviarMensagem(); }
+    shadow.getElementById('pageai-minimize').addEventListener('click', () => {
+        const body = shadow.getElementById('pageai-body-wrapper');
+        const outer = shadow.getElementById('pageai-wrapper-outer');
+        const btn = shadow.getElementById('pageai-minimize');
+        if (body.style.display === 'none') {
+            body.style.display = 'flex';
+            outer.style.height = '480px';
+            btn.textContent = '−';
+        } else {
+            body.style.display = 'none';
+            outer.style.height = 'auto';
+            btn.textContent = '□';
+        }
     });
-    setTimeout(() => input.focus(), 100);
-  }
 
-  function toggleMinimizar() {
-    const wrapper = document.getElementById('pageai-body-wrapper');
-    const chat = document.getElementById('pageai-chat');
-    const btn = document.getElementById('pageai-minimize');
-    if (wrapper.style.display === 'none') {
-      wrapper.style.display = 'flex';
-      chat.style.height = '480px';
-      btn.textContent = '−';
-    } else {
-      wrapper.style.display = 'none';
-      chat.style.height = 'auto';
-      btn.textContent = '□';
-    }
+    shadow.getElementById('pageai-send').addEventListener('click', () => enviarMensagem(shadow));
+    
+    // Impedir que eventos de teclado vazem para o site (evita atalhos do Kick/YouTube)
+    input.addEventListener('keydown', (e) => {
+      e.stopPropagation();
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        enviarMensagem(shadow);
+      }
+    });
+
+    input.addEventListener('keypress', (e) => e.stopPropagation());
+    input.addEventListener('keyup', (e) => e.stopPropagation());
+
+    setTimeout(() => {
+      input.focus();
+    }, 100);
   }
 
   function esconderChat() {
@@ -81,61 +181,47 @@
     if (el) el.remove();
   }
 
-  function enviarMensagem() {
-    const input = document.getElementById('pageai-input');
+  function enviarMensagem(shadow) {
+    const input = shadow.getElementById('pageai-input');
     const pergunta = input.value.trim();
     if (!pergunta) return;
 
     input.value = '';
     input.style.height = 'auto';
-    adicionarMensagem('user', pergunta);
-    const aiMsgId = adicionarMensagem('ai', 'Analisando página...');
-
-    // Timeout de segurança para evitar "Pensando..." eterno
-    const timeoutId = setTimeout(() => {
-        formatarMensagemIA(aiMsgId, "Erro: A resposta demorou muito ou o site bloqueou a conexão. Tente recarregar a página.");
-    }, 15000);
+    adicionarMensagem(shadow, 'user', pergunta);
+    const aiMsgId = adicionarMensagem(shadow, 'ai', 'Analisando página...');
 
     chrome.runtime.sendMessage(
       { type: 'PERGUNTA', pergunta, contexto: extrairContextoCompleto() },
       (resposta) => {
-        clearTimeout(timeoutId);
-        if (chrome.runtime.lastError) {
-          formatarMensagemIA(aiMsgId, "Erro: Conexão interrompida. Atualize a página e tente novamente.");
-          return;
-        }
-        if (!resposta || !resposta.texto) {
-          formatarMensagemIA(aiMsgId, "Erro: A IA não conseguiu gerar uma resposta. Tente reformular a pergunta.");
-          return;
-        }
-        formatarMensagemIA(aiMsgId, resposta.texto);
+        formatarMensagemIA(shadow, aiMsgId, resposta?.texto || "Erro na resposta.");
       }
     );
   }
 
   function extrairContextoCompleto() {
     const clone = document.body.cloneNode(true);
-    const inuteis = clone.querySelectorAll('script, style, nav, footer, noscript, svg, path');
+    const inuteis = clone.querySelectorAll('script, style, nav, footer, noscript, svg, #pageai-chat');
     inuteis.forEach(el => el.remove());
-    
-    // Tenta pegar o título principal e descrição da meta tag
-    const metaDesc = document.querySelector('meta[name="description"]')?.content || '';
-    const h1s = Array.from(document.querySelectorAll('h1')).map(h => h.innerText).join(' | ');
 
-    const texto = clone.innerText.replace(/\s\s+/g, ' ').slice(0, 7000);
+    // Limpeza agressiva de tags e atributos pra reduzir ruído e tokens
+    const walker = document.createTreeWalker(clone, NodeFilter.SHOW_ELEMENT);
+    let n;
+    while(n = walker.nextNode()) {
+      n.removeAttribute('style');
+      n.removeAttribute('class');
+      n.removeAttribute('id');
+    }
 
-    const imagens = Array.from(document.querySelectorAll('img'))
-      .slice(0, 15)
-      .map(img => `[Img: ${img.alt || 'Sem descrição'}]`)
-      .filter(t => t.length > 5)
-      .join(', ');
+    const textoLimpo = clone.innerText.replace(/\s\s+/g, ' ').trim();
+    const titulo = document.title;
+    const metaDesc = document.querySelector('meta[name="description"]')?.content || "";
 
-    return `URL: ${location.href}\nMeta Description: ${metaDesc}\nTítulos: ${h1s}\n\nTEXTO ÚTIL:\n${texto}\n\nIMAGENS:\n${imagens}`;
+    return `TÍTULO: ${titulo}\nDESCRIÇÃO: ${metaDesc}\nURL: ${location.href}\n\nCONTEÚDO PRINCIPAL:\n${textoLimpo.slice(0, 8000)}`;
   }
 
-  function adicionarMensagem(origem, texto) {
-    const msgs = document.getElementById('pageai-messages');
-    if (!msgs) return;
+  function adicionarMensagem(shadow, origem, texto) {
+    const msgs = shadow.getElementById('pageai-messages');
     const el = document.createElement('div');
     const id = 'msg-' + Date.now();
     el.id = id;
@@ -147,35 +233,13 @@
     return id;
   }
 
-  function formatarMensagemIA(id, texto) {
-    const el = document.getElementById(id);
+  function formatarMensagemIA(shadow, id, texto) {
+    const el = shadow.getElementById(id);
     if (!el) return;
     const content = el.querySelector('.msg-content');
-    if (!content) return;
     content.innerHTML = texto.replace(/\n\n/g, '<br><br>').replace(/\n/g, '<br>')
-      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-      .replace(/`(.*?)`/g, '<code>$1</code>');
-    const msgs = document.getElementById('pageai-messages');
-    if (msgs) msgs.scrollTop = msgs.scrollHeight;
-  }
-
-  function injetarEstilos() {
-    if (document.getElementById('pageai-styles')) return;
-    const style = document.createElement('style');
-    style.id = 'pageai-styles';
-    style.textContent = `
-      #pageai-chat { position: fixed; bottom: 24px; right: 24px; width: 360px; height: 480px; background: #fff; border-radius: 16px; display: flex; flex-direction: column; z-index: 2147483647; font-family: sans-serif; box-shadow: 0 12px 48px rgba(0,0,0,0.15); border: 1px solid rgba(0,0,0,0.1); overflow: hidden; transition: height 0.3s; }
-      #pageai-header { padding: 14px 18px; background: #f3f4f6; color: #1f2937; display: flex; justify-content: space-between; align-items: center; font-weight: 600; border-bottom: 1px solid #e5e7eb; }
-      #pageai-header button { background: none; border: none; color: #6b7280; cursor: pointer; font-size: 18px; }
-      #pageai-body-wrapper { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
-      #pageai-messages { flex: 1; overflow-y: auto; padding: 20px 16px; display: flex; flex-direction: column; gap: 12px; }
-      .pageai-msg { max-width: 85%; padding: 10px 14px; border-radius: 14px; font-size: 14px; line-height: 1.4; word-wrap: break-word; }
-      .pageai-msg-user { background: #374151; color: white; align-self: flex-end; border-bottom-right-radius: 2px; }
-      .pageai-msg-ai { background: #f3f4f6; color: #1f2937; align-self: flex-start; border-bottom-left-radius: 2px; border: 1px solid #e5e7eb; }
-      #pageai-input-row { padding: 12px 16px; border-top: 1px solid #f0f0f0; display: flex; gap: 10px; align-items: flex-end; }
-      #pageai-input { flex: 1; padding: 8px 12px; border: 1px solid #e2e8f0; border-radius: 12px; outline: none; resize: none; max-height: 120px; font-family: inherit; }
-      #pageai-send { width: 32px; height: 32px; background: #374151; color: white; border: none; border-radius: 50%; cursor: pointer; }
-    `;
-    document.head.appendChild(style);
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+    const msgs = shadow.getElementById('pageai-messages');
+    msgs.scrollTop = msgs.scrollHeight;
   }
 })();

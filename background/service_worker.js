@@ -19,15 +19,26 @@ async function responderPergunta(pergunta, contexto) {
 
   if (!apiKey) return { texto: 'API Key não configurada. Abra o popup e salve sua chave.' };
 
+  // Timeout de 15 segundos para evitar o "Analisando..." infinito
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15000);
+
   try {
+    let resultado;
     switch (apiProvider) {
-      case 'anthropic': return await responderAnthropic(pergunta, contexto, apiKey);
-      case 'openai': return await responderOpenAI(pergunta, contexto, apiKey);
-      case 'gemini': return await responderGemini(pergunta, contexto, apiKey);
-      case 'abacus': return await responderAbacus(pergunta, contexto, apiKey);
-      default: return { texto: 'Provedor de API desconhecido.' };
+      case 'anthropic': resultado = await responderAnthropic(pergunta, contexto, apiKey, controller.signal); break;
+      case 'openai': resultado = await responderOpenAI(pergunta, contexto, apiKey, controller.signal); break;
+      case 'gemini': resultado = await responderGemini(pergunta, contexto, apiKey, controller.signal); break;
+      case 'abacus': resultado = await responderAbacus(pergunta, contexto, apiKey, controller.signal); break;
+      default: resultado = { texto: 'Provedor de API desconhecido.' };
     }
+    clearTimeout(timeoutId);
+    return resultado;
   } catch (err) {
+    clearTimeout(timeoutId);
+    if (err.name === 'AbortError') {
+      return { texto: '⚠️ A resposta demorou muito. Verifique sua conexão ou se a chave de API é válida.' };
+    }
     return { texto: `Erro de conexão: ${err.message}` };
   }
 }
@@ -47,9 +58,10 @@ REGRAS DE RESPOSTA:
 CONTEXTO DA PÁGINA ATUAL:
 ${contexto}`;
 
-async function responderAnthropic(pergunta, contexto, apiKey) {
+async function responderAnthropic(pergunta, contexto, apiKey, signal) {
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
+    signal,
     headers: {
       'Content-Type': 'application/json',
       'x-api-key': apiKey,
@@ -67,12 +79,13 @@ async function responderAnthropic(pergunta, contexto, apiKey) {
   return { texto: json.content[0].text };
 }
 
-async function responderOpenAI(pergunta, contexto, apiKey) {
+async function responderOpenAI(pergunta, contexto, apiKey, signal) {
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
+    signal,
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
     body: JSON.stringify({
-      model: 'gpt-4o',
+      model: 'gpt-4o-mini',
       messages: [
         { role: 'system', content: PROMPT_SISTEMA(contexto) },
         { role: 'user', content: pergunta }
@@ -85,9 +98,10 @@ async function responderOpenAI(pergunta, contexto, apiKey) {
   return { texto: json.choices[0].message.content };
 }
 
-async function responderGemini(pergunta, contexto, apiKey) {
+async function responderGemini(pergunta, contexto, apiKey, signal) {
   const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
     method: 'POST',
+    signal,
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       contents: [{
@@ -100,9 +114,10 @@ async function responderGemini(pergunta, contexto, apiKey) {
   return { texto: json.candidates[0].content.parts[0].text };
 }
 
-async function responderAbacus(pergunta, contexto, apiKey) {
+async function responderAbacus(pergunta, contexto, apiKey, signal) {
   const response = await fetch('https://abacus.ai/api/v0/chat', {
     method: 'POST',
+    signal,
     headers: { 'Content-Type': 'application/json', 'x-abacus-api-key': apiKey },
     body: JSON.stringify({
       messages: [
