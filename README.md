@@ -1,48 +1,34 @@
 # PageAI 🤖
 
-Sua IA pessoal para navegar na web de forma inteligente. O PageAI transforma qualquer página estática em um chat interativo, permitindo que você faça perguntas, resuma conteúdos ou busque informações externas usando o poder do Claude (Anthropic) ou GPT-4 (OpenAI).
+Sua IA pessoal para navegar na web de forma inteligente. O PageAI transforma qualquer página estática em um chat interativo.
 
 ## ✨ Funcionalidades
 
-- **Análise em Tempo Real**: Entende o contexto da página que você está visitando.
-- **Multi-Provedor**: Suporte nativo para **Anthropic (Claude 3 Haiku)** e **OpenAI (GPT-4o)**.
-- **Conhecimento Híbrido**: Responde com base na página ou busca conhecimento externo quando necessário (com aviso de fonte).
-- **Interface Moderna**: Chat minimalista com tema neutro (grafite e cinza) que não interfere na navegação.
-- **UX Inteligente**: 
-  - Campo de texto que cresce automaticamente conforme você digita.
-  - Função "Minimizar" para não atrapalhar a visão.
-  - Atalho rápido no teclado (Alt + A) para ligar/desligar.
-- **Privacidade**: Suas chaves de API são armazenadas localmente no seu navegador.
+- **Análise Multimodal**: A IA agora "vê" descrições de imagens, títulos (H1) e detecta vídeos na página.
+- **Multi-Provedor**: Suporte para **Anthropic (Claude)**, **OpenAI (GPT-4o)**, **Google (Gemini 1.5)** e **Abacus AI**.
+- **Conhecimento Híbrido**: Responde com base na página ou busca conhecimento externo quando necessário.
+- **Interface Moderna**: Chat minimalista e funcional com modo de minimização.
+- **UX Inteligente**: Campo de texto expansível e atalhos rápidos.
+- **Privacidade**: Chaves de API armazenadas localmente.
 
 ## 🚀 Como instalar
 
-1.  Faça o download ou clone este repositório.
-2.  Abra o seu navegador Chrome (ou navegadores baseados em Chromium como Brave/Edge).
-3.  Acesse `chrome://extensions`.
-4.  Ative o **"Modo do desenvolvedor"** no canto superior direito.
-5.  Clique em **"Carregar sem compactação"** e selecione a pasta deste projeto.
+1.  Acesse `chrome://extensions`.
+2.  Ative o **"Modo do desenvolvedor"**.
+3.  Clique em **"Carregar sem compactação"** e selecione a pasta do projeto.
 
 ## ⚙️ Configuração
 
-1.  Clique no ícone da extensão (PageAI) na sua barra de ferramentas.
-2.  Escolha seu provedor preferido (**Anthropic** ou **OpenAI**).
-3.  Insira sua **API Key**.
-4.  Clique em **"Configurar PageAI"**.
-5.  Ative a chave **"Ativar nesta aba"** para começar a conversar!
+1.  Abra o Popup da extensão.
+2.  Escolha seu provedor e insira sua **API Key**.
+3.  Clique em **"Configurar PageAI"**.
+4.  Ative a chave **"Ativar nesta aba"**.
 
 ## ⌨️ Atalhos
 
-- **Abrir/Fechar Chat**: `Alt + A` (configurável no Chrome).
+- **Abrir/Fechar Chat**: `Alt + A`.
 - **Enviar Mensagem**: `Enter`.
 - **Quebrar Linha**: `Shift + Enter`.
-- **Minimizar**: Botão `−` no cabeçalho do chat.
-
-## 🛠️ Tecnologias Utilizadas
-
-- **Manifest V3**: Padrão mais moderno e seguro para extensões Chrome.
-- **JavaScript (ES6+)**: Lógica de manipulação de DOM e chamadas de API.
-- **Chrome Storage API**: Persistência de configurações por aba e chaves de API.
-- **Chrome Scripting API**: Injeção dinâmica do chat nas páginas.
 
 ---
-*Nota: Esta extensão requer uma API Key válida dos provedores mencionados. O uso está sujeito aos custos das respectivas plataformas.*
+*Nota: Requer API Key válida do provedor escolhido.*
