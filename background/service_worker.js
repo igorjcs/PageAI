@@ -32,19 +32,19 @@ async function responderPergunta(pergunta, contexto) {
   }
 }
 
-const PROMPT_SISTEMA = (contexto) => `Você é um assistente para páginas web.
+const PROMPT_SISTEMA = (contexto) => `Você é um assistente especialista em análise de páginas web.
 
-INSTRUÇÕES PRINCIPAIS
-- Responda sempre em português (pt-BR).
-- Seja direto e objetivo.
-- Conteúdo extraído da página (texto, imagens, estrutura) segue abaixo.
+OBJETIVO PRINCIPAL:
+- Responder perguntas sobre a página atual usando o contexto fornecido.
+- Se a resposta não estiver na página, você DEVE buscar em seu conhecimento geral, avisando o usuário.
 
-POLÍTICA DE FONTE E CONHECIMENTO EXTERNO
-1. Tente encontrar a resposta PRIMEIRO na página.
-2. Se NÃO estiver na página, use seu conhecimento externo.
-3. Se usar conhecimento externo, adicione: "(Nota: Informação de fontes externas)".
+REGRAS DE RESPOSTA:
+1. Responda SEMPRE em português (pt-BR).
+2. Tente identificar o tema central da página (ex: se é o site do Flamengo, de uma loja, etc).
+3. Seja direto. Se o usuário perguntar "qual o time dessa página?", analise o título, URL e conteúdo para responder (ex: "Esta página é do Clube de Regatas do Flamengo").
+4. Se usar conhecimento externo à página, adicione ao final: "(Nota: Informação de fontes externas)".
 
-CONTEXTO DA PÁGINA:
+CONTEXTO DA PÁGINA ATUAL:
 ${contexto}`;
 
 async function responderAnthropic(pergunta, contexto, apiKey) {
@@ -63,7 +63,8 @@ async function responderAnthropic(pergunta, contexto, apiKey) {
     }),
   });
   const json = await response.json();
-  return response.ok ? { texto: json.content[0].text } : { texto: `Erro Anthropic: ${json.error?.message}` };
+  if (!response.ok) return { texto: `Erro Anthropic: ${json.error?.message || response.status}` };
+  return { texto: json.content[0].text };
 }
 
 async function responderOpenAI(pergunta, contexto, apiKey) {
@@ -76,10 +77,12 @@ async function responderOpenAI(pergunta, contexto, apiKey) {
         { role: 'system', content: PROMPT_SISTEMA(contexto) },
         { role: 'user', content: pergunta }
       ],
+      max_tokens: 1024,
     }),
   });
   const json = await response.json();
-  return response.ok ? { texto: json.choices[0].message.content } : { texto: `Erro OpenAI: ${json.error?.message}` };
+  if (!response.ok) return { texto: `Erro OpenAI: ${json.error?.message || response.status}` };
+  return { texto: json.choices[0].message.content };
 }
 
 async function responderGemini(pergunta, contexto, apiKey) {
@@ -88,16 +91,16 @@ async function responderGemini(pergunta, contexto, apiKey) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       contents: [{
-        parts: [{ text: PROMPT_SISTEMA(contexto) + "\n\nPERGUNTA: " + pergunta }]
+        parts: [{ text: PROMPT_SISTEMA(contexto) + "\n\nPERGUNTA DO USUÁRIO: " + pergunta }]
       }]
     }),
   });
   const json = await response.json();
-  return response.ok ? { texto: json.candidates[0].content.parts[0].text } : { texto: `Erro Gemini: ${json.error?.message}` };
+  if (!response.ok) return { texto: `Erro Gemini: ${json.error?.message || response.status}` };
+  return { texto: json.candidates[0].content.parts[0].text };
 }
 
 async function responderAbacus(pergunta, contexto, apiKey) {
-  // Abacus AI Chat API
   const response = await fetch('https://abacus.ai/api/v0/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-abacus-api-key': apiKey },
@@ -109,5 +112,6 @@ async function responderAbacus(pergunta, contexto, apiKey) {
     }),
   });
   const json = await response.json();
-  return response.ok ? { texto: json.result.content } : { texto: `Erro Abacus: ${json.error?.message || 'Falha na API'}` };
+  if (!response.ok) return { texto: `Erro Abacus: ${json.error?.message || 'Falha na API'}` };
+  return { texto: json.result.content };
 }

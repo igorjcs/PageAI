@@ -91,40 +91,46 @@
     adicionarMensagem('user', pergunta);
     const aiMsgId = adicionarMensagem('ai', 'Analisando página...');
 
+    // Timeout de segurança para evitar "Pensando..." eterno
+    const timeoutId = setTimeout(() => {
+        formatarMensagemIA(aiMsgId, "Erro: A resposta demorou muito ou o site bloqueou a conexão. Tente recarregar a página.");
+    }, 15000);
+
     chrome.runtime.sendMessage(
       { type: 'PERGUNTA', pergunta, contexto: extrairContextoCompleto() },
       (resposta) => {
+        clearTimeout(timeoutId);
         if (chrome.runtime.lastError) {
-          formatarMensagemIA(aiMsgId, "Erro de conexão.");
+          formatarMensagemIA(aiMsgId, "Erro: Conexão interrompida. Atualize a página e tente novamente.");
           return;
         }
-        formatarMensagemIA(aiMsgId, resposta?.texto || "Erro na resposta.");
+        if (!resposta || !resposta.texto) {
+          formatarMensagemIA(aiMsgId, "Erro: A IA não conseguiu gerar uma resposta. Tente reformular a pergunta.");
+          return;
+        }
+        formatarMensagemIA(aiMsgId, resposta.texto);
       }
     );
   }
 
   function extrairContextoCompleto() {
-    // 1. Texto Limpo
     const clone = document.body.cloneNode(true);
-    const inuteis = clone.querySelectorAll('script, style, nav, footer, noscript');
+    const inuteis = clone.querySelectorAll('script, style, nav, footer, noscript, svg, path');
     inuteis.forEach(el => el.remove());
-    const texto = clone.innerText.slice(0, 5000);
-
-    // 2. Visão: Imagens e Alts
-    const imagens = Array.from(document.querySelectorAll('img'))
-      .slice(0, 10) // Limita as 10 primeiras importantes
-      .map(img => `[Imagem: ${img.alt || 'Sem descrição'} | Fonte: ${img.src.slice(0, 100)}...]`)
-      .join('\n');
-
-    // 3. Vídeos
-    const videos = Array.from(document.querySelectorAll('video, iframe[src*="youtube"]'))
-      .map(v => `[Vídeo detectado: ${v.title || v.src || 'Player'}]`)
-      .join('\n');
-
-    // 4. Estrutura
+    
+    // Tenta pegar o título principal e descrição da meta tag
+    const metaDesc = document.querySelector('meta[name="description"]')?.content || '';
     const h1s = Array.from(document.querySelectorAll('h1')).map(h => h.innerText).join(' | ');
 
-    return `URL: ${location.href}\nCapítulo Principal: ${h1s}\n\nTEXTO:\n${texto}\n\nIMAGENS ENCONTRADAS:\n${imagens}\n\nVÍDEOS:\n${videos}`;
+    const texto = clone.innerText.replace(/\s\s+/g, ' ').slice(0, 7000);
+
+    const imagens = Array.from(document.querySelectorAll('img'))
+      .slice(0, 15)
+      .map(img => `[Img: ${img.alt || 'Sem descrição'}]`)
+      .filter(t => t.length > 5)
+      .join(', ');
+
+    return `URL: ${location.href}\nMeta Description: ${metaDesc}\nTítulos: ${h1s}\n\nTEXTO ÚTIL:\n${texto}\n\nIMAGENS:\n${imagens}`;
   }
 
   function adicionarMensagem(origem, texto) {
@@ -163,7 +169,7 @@
       #pageai-header button { background: none; border: none; color: #6b7280; cursor: pointer; font-size: 18px; }
       #pageai-body-wrapper { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
       #pageai-messages { flex: 1; overflow-y: auto; padding: 20px 16px; display: flex; flex-direction: column; gap: 12px; }
-      .pageai-msg { max-width: 85%; padding: 10px 14px; border-radius: 14px; font-size: 14px; line-height: 1.4; }
+      .pageai-msg { max-width: 85%; padding: 10px 14px; border-radius: 14px; font-size: 14px; line-height: 1.4; word-wrap: break-word; }
       .pageai-msg-user { background: #374151; color: white; align-self: flex-end; border-bottom-right-radius: 2px; }
       .pageai-msg-ai { background: #f3f4f6; color: #1f2937; align-self: flex-start; border-bottom-left-radius: 2px; border: 1px solid #e5e7eb; }
       #pageai-input-row { padding: 12px 16px; border-top: 1px solid #f0f0f0; display: flex; gap: 10px; align-items: flex-end; }
