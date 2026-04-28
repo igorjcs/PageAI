@@ -214,15 +214,7 @@
       <p id="subtext">Use alt + A para alternar rápido</p>
     </div>
 
-    <div id="setup-section" class="settings-section">
-      <label for="api-provider">IA Provedor</label>
-      <select id="api-provider">
-        <option value="anthropic">Anthropic (Claude)</option>
-        <option value="openai">OpenAI (GPT-4)</option>
-        <option value="gemini">Google (Gemini 1.5)</option>
-        <option value="abacus">Abacus AI</option>
-      </select>
-
+    <div class="settings-section">
       <label for="capture-mode">Modo de leitura</label>
       <select id="capture-mode">
         <option value="safe">Seguro (somente texto visivel)</option>
@@ -231,6 +223,16 @@
       <p style="font-size: 11px; color: #6b7280; margin: 6px 0 12px;">
         O modo Amplo tenta ler mais conteudo, mas pode incluir mais dados sensiveis.
       </p>
+    </div>
+
+    <div id="setup-section" class="settings-section">
+      <label for="api-provider">IA Provedor</label>
+      <select id="api-provider">
+        <option value="anthropic">Anthropic (Claude)</option>
+        <option value="openai">OpenAI (GPT-4)</option>
+        <option value="gemini">Google (Gemini 1.5)</option>
+        <option value="abacus">Abacus AI</option>
+      </select>
       
       <label for="api-key">API Key</label>
       <input type="password" id="api-key" placeholder="Insira sua chave aqui...">

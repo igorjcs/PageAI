@@ -40,6 +40,13 @@ chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
   });
 });
 
+captureModeSelect.addEventListener('change', () => {
+  const captureMode = captureModeSelect.value || 'safe';
+  chrome.storage.local.set({ captureMode }, () => {
+    mostrarMensagem('Modo de leitura atualizado.', 'success');
+  });
+});
+
 toggle.addEventListener('change', () => {
   chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
     if (!tab) return;
