@@ -17,7 +17,6 @@
       return;
     }
 
-    // Criamos um contêiner HOST para isolar o chat do resto da página via Shadow DOM
     chatBox = document.createElement('div');
     chatBox.id = 'pageai-chat';
     document.body.appendChild(chatBox);
@@ -175,7 +174,6 @@
 
     shadow.getElementById('pageai-send').addEventListener('click', () => enviarMensagem(shadow));
     
-    // Impedir que eventos de teclado vazem para o site (evita atalhos do Kick/YouTube)
     input.addEventListener('keydown', (e) => {
       e.stopPropagation();
       if (e.key === 'Enter' && !e.shiftKey) {
@@ -269,7 +267,6 @@
       if (element.nodeType !== Node.ELEMENT_NODE) return "";
 
       const style = window.getComputedStyle(element);
-      // LinkedIn e outros sites modernos usam opacidade ou outros métodos que podem enganar o offsetParent
       if (style.display === 'none' || style.visibility === 'hidden') {
         return "";
       }
@@ -280,7 +277,6 @@
       }
 
       let text = "";
-      // Capturar nomes de cargos e empresas que muitas vezes estão em atributos ARIA no LinkedIn
       if (element.alt) text += `[Imagem: ${element.alt}] `;
       if (element.ariaLabel) text += `[Label: ${element.ariaLabel}] `;
 
@@ -295,7 +291,6 @@
             text += getVisibleText(doc.body) + " ";
           }
         } catch (err) {
-          // iframe cross-origin: ignorar por seguranca
         }
       }
 
@@ -312,10 +307,9 @@
     const h1s = Array.from(document.querySelectorAll('h1')).map(h => h.innerText.trim()).filter(t => t).join(' | ');
     const url = sanitizeUrl(location.href);
 
-    // Estrutura mais clara para a IA
     let contextoFinal = `URL: ${url}\nTÍTULO: ${titulo}\nH1: ${h1s}\nMODO: ${mode}\n\nCONTEÚDO DA PÁGINA:\n${textoLimpo}`;
 
-    // Aumentado para 20.000 para perfis complexos
+    // Cracteres enviados para a API. Limitar para evitar estouro de token e garantir resposta.
     return contextoFinal.slice(0, 20000);
   }
 

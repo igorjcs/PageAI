@@ -19,7 +19,7 @@ async function responderPergunta(pergunta, contexto) {
 
   if (!apiKey) return { texto: '⚠️ API Key não configurada. Abra o popup e salve sua chave.' };
 
-  // Timeout de 30 segundos (aumentado para análises longas)
+  // Timeout de 30 segundos
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 30000);
 
