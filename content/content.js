@@ -197,7 +197,7 @@
     if (el) el.remove();
   }
 
-  function enviarMensagem(shadow) {
+  async function enviarMensagem(shadow) {
     const input = shadow.getElementById('pageai-input');
     const pergunta = input.value.trim();
     if (!pergunta) return;
@@ -222,12 +222,23 @@
       finalizarResposta('⌛ A resposta demorou demais. Tente novamente ou recarregue a página.');
     }, 35000);
 
-    chrome.storage.local.get(['captureMode'], (data) => {
+    chrome.storage.local.get(['captureMode'], async (data) => {
       const mode = data.captureMode || 'safe';
-      const contexto = extrairContextoCompleto(mode);
+      const contextoBruto = extrairContextoCompleto(mode);
+      const contextoRedigido = redactPII(contextoBruto);
+      const confirmacao = await showPreviewDialog(shadow, contextoRedigido);
+
+      if (!confirmacao.confirmed) {
+        clearTimeout(timeoutId);
+        input.dataset.sending = 'false';
+        finalizarResposta('Envio cancelado pelo usuario.');
+        return;
+      }
+
+      const contextoFinal = confirmacao.text.slice(0, 20000);
 
       chrome.runtime.sendMessage(
-        { type: 'PERGUNTA', pergunta, contexto },
+        { type: 'PERGUNTA', pergunta, contexto: contextoFinal },
         (resposta) => {
           clearTimeout(timeoutId);
           input.dataset.sending = 'false';
@@ -299,13 +310,143 @@
     
     const titulo = document.title;
     const h1s = Array.from(document.querySelectorAll('h1')).map(h => h.innerText.trim()).filter(t => t).join(' | ');
-    const url = location.href;
+    const url = sanitizeUrl(location.href);
 
     // Estrutura mais clara para a IA
     let contextoFinal = `URL: ${url}\nTÍTULO: ${titulo}\nH1: ${h1s}\nMODO: ${mode}\n\nCONTEÚDO DA PÁGINA:\n${textoLimpo}`;
 
     // Aumentado para 20.000 para perfis complexos
     return contextoFinal.slice(0, 20000);
+  }
+
+  function sanitizeUrl(rawUrl) {
+    try {
+      const url = new URL(rawUrl);
+      url.search = '';
+      url.hash = '';
+      return url.toString();
+    } catch (err) {
+      return rawUrl.split('#')[0].split('?')[0];
+    }
+  }
+
+  function redactPII(texto) {
+    if (!texto) return '';
+    return texto
+      .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[EMAIL]')
+      .replace(/\b\d{3}\.\d{3}\.\d{3}-\d{2}\b/g, '[CPF]')
+      .replace(/\b\d{11}\b/g, '[CPF]')
+      .replace(/\b(?:\d[ -]*?){13,19}\b/g, '[CARTAO]')
+      .replace(/\b\+?\d{1,3}\s?\(?\d{2,3}\)?[\s.-]?\d{4,5}[\s.-]?\d{4}\b/g, '[TELEFONE]')
+      .replace(/\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b/g, '[TOKEN]');
+  }
+
+  function showPreviewDialog(shadow, contexto) {
+    return new Promise((resolve) => {
+      const existing = shadow.getElementById('pageai-preview-overlay');
+      if (existing) existing.remove();
+
+      const overlay = document.createElement('div');
+      overlay.id = 'pageai-preview-overlay';
+      overlay.innerHTML = `
+        <div class="pageai-preview-backdrop"></div>
+        <div class="pageai-preview-card">
+          <div class="pageai-preview-title">Revisar contexto antes de enviar</div>
+          <div class="pageai-preview-subtitle">Edite ou remova qualquer trecho sensivel.</div>
+          <textarea class="pageai-preview-text"></textarea>
+          <div class="pageai-preview-actions">
+            <button class="pageai-preview-cancel">Cancelar</button>
+            <button class="pageai-preview-send">Enviar</button>
+          </div>
+        </div>
+      `;
+
+      const style = document.createElement('style');
+      style.textContent = `
+        #pageai-preview-overlay {
+          position: fixed;
+          inset: 0;
+          z-index: 2147483647;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-family: inherit;
+        }
+        .pageai-preview-backdrop {
+          position: absolute;
+          inset: 0;
+          background: rgba(15, 23, 42, 0.6);
+        }
+        .pageai-preview-card {
+          position: relative;
+          background: #ffffff;
+          width: min(90vw, 520px);
+          max-height: 80vh;
+          border-radius: 14px;
+          padding: 16px;
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+          box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+          z-index: 1;
+        }
+        .pageai-preview-title {
+          font-size: 15px;
+          font-weight: 700;
+          color: #0f172a;
+        }
+        .pageai-preview-subtitle {
+          font-size: 12px;
+          color: #475569;
+        }
+        .pageai-preview-text {
+          width: 100%;
+          min-height: 220px;
+          max-height: 50vh;
+          resize: vertical;
+          padding: 10px;
+          border-radius: 10px;
+          border: 1px solid #e2e8f0;
+          font-family: inherit;
+          font-size: 12px;
+          line-height: 1.4;
+          color: #0f172a;
+        }
+        .pageai-preview-actions {
+          display: flex;
+          gap: 8px;
+          justify-content: flex-end;
+        }
+        .pageai-preview-actions button {
+          border: none;
+          border-radius: 8px;
+          padding: 8px 12px;
+          font-weight: 600;
+          cursor: pointer;
+        }
+        .pageai-preview-cancel { background: #e2e8f0; color: #0f172a; }
+        .pageai-preview-send { background: #2563eb; color: #ffffff; }
+      `;
+
+      const textarea = overlay.querySelector('.pageai-preview-text');
+      const cancelBtn = overlay.querySelector('.pageai-preview-cancel');
+      const sendBtn = overlay.querySelector('.pageai-preview-send');
+
+      textarea.value = contexto;
+      cancelBtn.addEventListener('click', () => {
+        overlay.remove();
+        resolve({ confirmed: false, text: '' });
+      });
+      sendBtn.addEventListener('click', () => {
+        const finalText = textarea.value.trim();
+        overlay.remove();
+        resolve({ confirmed: true, text: finalText });
+      });
+
+      shadow.appendChild(style);
+      shadow.appendChild(overlay);
+      textarea.focus();
+    });
   }
 
   function adicionarMensagem(shadow, origem, texto) {

@@ -17,6 +17,7 @@ const PROVIDER_NAMES = {
   abacus: 'Abacus AI'
 };
 
+
 // Ao abrir o popup, carrega o estado salvo
 chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
   if (!tab) return;
@@ -100,4 +101,13 @@ function mostrarMensagem(texto, tipo) {
   msgEl.textContent = texto;
   msgEl.className = tipo;
   setTimeout(() => { msgEl.textContent = ''; msgEl.className = ''; }, 2500);
+}
+
+function getHostname(url) {
+  try {
+    const parsed = new URL(url);
+    return parsed.hostname || '';
+  } catch (err) {
+    return '';
+  }
 }

@@ -10,6 +10,7 @@ Sua IA pessoal para navegar na web de forma inteligente. O PageAI transforma qua
 - **Interface Moderna**: Chat minimalista e funcional com modo de minimização.
 - **UX Inteligente**: Campo de texto expansível e atalhos rápidos.
 - **Privacidade**: Chaves de API armazenadas localmente.
+- **Privacidade reforcada**: Revisao do contexto antes do envio e redacao automatica de PII.
 
 ## 🚀 Como instalar
 
@@ -23,6 +24,13 @@ Sua IA pessoal para navegar na web de forma inteligente. O PageAI transforma qua
 2.  Escolha seu provedor e insira sua **API Key**.
 3.  Clique em **"Configurar PageAI"**.
 4.  Ative a chave **"Ativar nesta aba"**.
+
+## 🔒 Privacidade e seguranca
+
+- O contexto so e enviado apos revisao e confirmacao do usuario.
+- Dados sensiveis comuns (email, telefone, CPF, cartao) sao redigidos automaticamente.
+- A extensao funciona em qualquer site, mas sempre exige revisao do contexto.
+- A extensao so injeta o script na aba ativa quando voce clica em ativar.
 
 ## ⌨️ Atalhos
 
