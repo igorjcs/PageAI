@@ -222,41 +222,45 @@
 
     chrome.storage.local.get(['captureMode'], async (data) => {
       const mode = data.captureMode || 'safe';
-      const contextoBruto = extrairContextoCompleto(mode);
-      const contextoRedigido = redactPII(contextoBruto);
-      const confirmacao = await showPreviewDialog(shadow, contextoRedigido);
+      const contextoBase = extrairContextoEstruturado(mode);
+      const headerText = redactPII(contextoBase.headerText || '');
+      const bodyText = redactPII(contextoBase.bodyText || '');
+      const chunks = splitIntoChunks(bodyText, 900, 120).slice(0, 18);
 
-      if (!confirmacao.confirmed) {
-        clearTimeout(timeoutId);
-        input.dataset.sending = 'false';
-        finalizarResposta('Envio cancelado pelo usuario.');
-        return;
+      let topChunks = chunks.slice(0, 6);
+      try {
+        const embedResult = await buscarTrechosRelevantes(pergunta, chunks);
+        if (embedResult && Array.isArray(embedResult.topChunks) && embedResult.topChunks.length) {
+          topChunks = embedResult.topChunks;
+        }
+      } catch (err) {
+        console.warn('Falha na busca vetorial, usando fallback:', err);
       }
 
-      const contextoFinal = confirmacao.text.slice(0, 20000);
+      const contextoFinal = montarContextoFinal(headerText, topChunks).slice(0, 20000);
+      const respostaPayload = await enviarPergunta(pergunta, contextoFinal);
 
-      chrome.runtime.sendMessage(
-        { type: 'PERGUNTA', pergunta, contexto: contextoFinal },
-        (resposta) => {
-          clearTimeout(timeoutId);
-          input.dataset.sending = 'false';
-          if (chrome.runtime.lastError) {
-            console.error('PageAI runtime error:', chrome.runtime.lastError);
-            finalizarResposta(`❌ Erro de comunicação: ${chrome.runtime.lastError.message}`);
-            return;
-          }
-          if (!resposta || !resposta.texto) {
-            console.error('PageAI resposta inválida:', resposta);
-            finalizarResposta('❌ Não consegui gerar resposta agora.');
-            return;
-          }
-          finalizarResposta(resposta.texto);
-        }
-      );
+      clearTimeout(timeoutId);
+      input.dataset.sending = 'false';
+
+      if (respostaPayload.timeout) {
+        finalizarResposta('⌛ A resposta demorou demais. Tente novamente.');
+        return;
+      }
+      if (respostaPayload.error) {
+        finalizarResposta(`❌ Erro de comunicação: ${respostaPayload.error}`);
+        return;
+      }
+      if (!respostaPayload.response || !respostaPayload.response.texto) {
+        console.error('PageAI resposta inválida:', respostaPayload.response);
+        finalizarResposta('❌ Não consegui gerar resposta agora.');
+        return;
+      }
+      finalizarResposta(respostaPayload.response.texto);
     });
   }
 
-  function extrairContextoCompleto(mode) {
+  function extrairContextoEstruturado(mode) {
     const includeIframes = mode === 'wide';
     const includeShadow = mode === 'wide';
 
@@ -301,16 +305,44 @@
     }
 
     const textoBruto = getVisibleText(document.body);
-    const textoLimpo = textoBruto.replace(/\s+/g, ' ').trim();
+    const textoLimpo = normalizeWhitespace(textoBruto);
+    const mediaText = coletarMidiaDescricao();
     
     const titulo = document.title;
     const h1s = Array.from(document.querySelectorAll('h1')).map(h => h.innerText.trim()).filter(t => t).join(' | ');
     const url = sanitizeUrl(location.href);
 
-    let contextoFinal = `URL: ${url}\nTÍTULO: ${titulo}\nH1: ${h1s}\nMODO: ${mode}\n\nCONTEÚDO DA PÁGINA:\n${textoLimpo}`;
+    const headerText = `URL: ${url}\nTÍTULO: ${titulo}\nH1: ${h1s}\nMODO: ${mode}`;
+    const bodyText = [mediaText, textoLimpo].filter((item) => item).join('\n\n');
+    return { headerText, bodyText };
+  }
 
-    // Cracteres enviados para a API. Limitar para evitar estouro de token e garantir resposta.
-    return contextoFinal.slice(0, 20000);
+  function montarContextoFinal(headerText, topChunks) {
+    const header = headerText ? headerText.trim() : '';
+    const body = topChunks
+      .map((chunk, index) => `[Trecho ${index + 1}] ${chunk}`)
+      .join('\n\n');
+    return `${header}\n\nCONTEUDO DA PAGINA (TRECHOS RELEVANTES):\n${body}`.trim();
+  }
+
+  function splitIntoChunks(text, chunkSize, overlap) {
+    const clean = normalizeWhitespace(text);
+    if (!clean) return [];
+    const chunks = [];
+    let start = 0;
+    while (start < clean.length) {
+      const end = Math.min(start + chunkSize, clean.length);
+      const chunk = clean.slice(start, end).trim();
+      if (chunk) chunks.push(chunk);
+      if (end === clean.length) break;
+      start = end - overlap;
+      if (start < 0) start = 0;
+    }
+    return chunks;
+  }
+
+  function normalizeWhitespace(text) {
+    return (text || '').replace(/\s+/g, ' ').trim();
   }
 
   function sanitizeUrl(rawUrl) {
@@ -324,6 +356,77 @@
     }
   }
 
+  function coletarMidiaDescricao() {
+    const linhas = [];
+    const imagens = Array.from(document.images || []);
+    const videos = Array.from(document.querySelectorAll('video'));
+
+    imagens.forEach((img) => {
+      const alt = normalizeWhitespace(img.alt || '');
+      const title = normalizeWhitespace(img.title || '');
+      const label = normalizeWhitespace(img.getAttribute('aria-label') || '');
+      const figcaption = normalizeWhitespace(obterLegenda(img));
+      const arquivo = obterNomeArquivo(img.currentSrc || img.src || '');
+
+      const parts = [
+        alt && `alt="${alt}"`,
+        title && `title="${title}"`,
+        label && `label="${label}"`,
+        figcaption && `legenda="${figcaption}"`,
+        arquivo && `arquivo="${arquivo}"`
+      ].filter(Boolean);
+
+      if (parts.length) {
+        linhas.push(`Imagem: ${parts.join(' | ')}`);
+      }
+    });
+
+    videos.forEach((video) => {
+      const title = normalizeWhitespace(video.title || '');
+      const label = normalizeWhitespace(video.getAttribute('aria-label') || '');
+      const poster = obterNomeArquivo(video.poster || '');
+      const src = obterNomeArquivo(video.currentSrc || video.src || '');
+
+      const parts = [
+        title && `title="${title}"`,
+        label && `label="${label}"`,
+        poster && `poster="${poster}"`,
+        src && `arquivo="${src}"`
+      ].filter(Boolean);
+
+      if (parts.length) {
+        linhas.push(`Video: ${parts.join(' | ')}`);
+      }
+    });
+
+    return linhas.length ? `MIDIA DETECTADA:\n${linhas.join('\n')}` : '';
+  }
+
+  function obterLegenda(img) {
+    const figure = img.closest('figure');
+    if (!figure) return '';
+    const caption = figure.querySelector('figcaption');
+    return caption ? caption.textContent || '' : '';
+  }
+
+  function obterNomeArquivo(url) {
+    try {
+      const parsed = new URL(url, location.href);
+      const parts = parsed.pathname.split('/').filter(Boolean);
+      return parts.length ? parts[parts.length - 1] : parsed.hostname;
+    } catch (err) {
+      return '';
+    }
+  }
+
+  function buscarTrechosRelevantes(pergunta, chunks) {
+    return sendMessageWithTimeout({ type: 'EMBED_SEARCH', pergunta, chunks }, 20000)
+      .then((result) => {
+        if (result.error || result.timeout) throw new Error(result.error || 'Timeout');
+        return result.response;
+      });
+  }
+
   function redactPII(texto) {
     if (!texto) return '';
     return texto
@@ -335,111 +438,29 @@
       .replace(/\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b/g, '[TOKEN]');
   }
 
-  function showPreviewDialog(shadow, contexto) {
+  function enviarPergunta(pergunta, contexto) {
+    return sendMessageWithTimeout({ type: 'PERGUNTA', pergunta, contexto }, 30000);
+  }
+
+  function sendMessageWithTimeout(message, timeoutMs) {
     return new Promise((resolve) => {
-      const existing = shadow.getElementById('pageai-preview-overlay');
-      if (existing) existing.remove();
+      let settled = false;
+      const timer = setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        resolve({ timeout: true });
+      }, timeoutMs);
 
-      const overlay = document.createElement('div');
-      overlay.id = 'pageai-preview-overlay';
-      overlay.innerHTML = `
-        <div class="pageai-preview-backdrop"></div>
-        <div class="pageai-preview-card">
-          <div class="pageai-preview-title">Revisar contexto antes de enviar</div>
-          <div class="pageai-preview-subtitle">Edite ou remova qualquer trecho sensivel.</div>
-          <textarea class="pageai-preview-text"></textarea>
-          <div class="pageai-preview-actions">
-            <button class="pageai-preview-cancel">Cancelar</button>
-            <button class="pageai-preview-send">Enviar</button>
-          </div>
-        </div>
-      `;
-
-      const style = document.createElement('style');
-      style.textContent = `
-        #pageai-preview-overlay {
-          position: fixed;
-          inset: 0;
-          z-index: 2147483647;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-family: inherit;
+      chrome.runtime.sendMessage(message, (response) => {
+        if (settled) return;
+        clearTimeout(timer);
+        settled = true;
+        if (chrome.runtime.lastError) {
+          resolve({ error: chrome.runtime.lastError.message });
+          return;
         }
-        .pageai-preview-backdrop {
-          position: absolute;
-          inset: 0;
-          background: rgba(15, 23, 42, 0.6);
-        }
-        .pageai-preview-card {
-          position: relative;
-          background: #ffffff;
-          width: min(90vw, 520px);
-          max-height: 80vh;
-          border-radius: 14px;
-          padding: 16px;
-          display: flex;
-          flex-direction: column;
-          gap: 10px;
-          box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-          z-index: 1;
-        }
-        .pageai-preview-title {
-          font-size: 15px;
-          font-weight: 700;
-          color: #0f172a;
-        }
-        .pageai-preview-subtitle {
-          font-size: 12px;
-          color: #475569;
-        }
-        .pageai-preview-text {
-          width: 100%;
-          min-height: 220px;
-          max-height: 50vh;
-          resize: vertical;
-          padding: 10px;
-          border-radius: 10px;
-          border: 1px solid #e2e8f0;
-          font-family: inherit;
-          font-size: 12px;
-          line-height: 1.4;
-          color: #0f172a;
-        }
-        .pageai-preview-actions {
-          display: flex;
-          gap: 8px;
-          justify-content: flex-end;
-        }
-        .pageai-preview-actions button {
-          border: none;
-          border-radius: 8px;
-          padding: 8px 12px;
-          font-weight: 600;
-          cursor: pointer;
-        }
-        .pageai-preview-cancel { background: #e2e8f0; color: #0f172a; }
-        .pageai-preview-send { background: #2563eb; color: #ffffff; }
-      `;
-
-      const textarea = overlay.querySelector('.pageai-preview-text');
-      const cancelBtn = overlay.querySelector('.pageai-preview-cancel');
-      const sendBtn = overlay.querySelector('.pageai-preview-send');
-
-      textarea.value = contexto;
-      cancelBtn.addEventListener('click', () => {
-        overlay.remove();
-        resolve({ confirmed: false, text: '' });
+        resolve({ response });
       });
-      sendBtn.addEventListener('click', () => {
-        const finalText = textarea.value.trim();
-        overlay.remove();
-        resolve({ confirmed: true, text: finalText });
-      });
-
-      shadow.appendChild(style);
-      shadow.appendChild(overlay);
-      textarea.focus();
     });
   }
 
