@@ -153,7 +153,7 @@
 
     shadow.getElementById('pageai-close').addEventListener('click', () => {
       esconderChat();
-      chrome.runtime.sendMessage({ type: 'DESATIVAR' });
+      safeSendMessage({ type: 'DESATIVAR' });
     });
 
     shadow.getElementById('pageai-minimize').addEventListener('click', () => {
@@ -451,17 +451,36 @@
         resolve({ timeout: true });
       }, timeoutMs);
 
-      chrome.runtime.sendMessage(message, (response) => {
+      try {
+        chrome.runtime.sendMessage(message, (response) => {
+          if (settled) return;
+          clearTimeout(timer);
+          settled = true;
+          if (chrome.runtime.lastError) {
+            resolve({ error: chrome.runtime.lastError.message });
+            return;
+          }
+          resolve({ response });
+        });
+      } catch (err) {
         if (settled) return;
-        clearTimeout(timer);
         settled = true;
-        if (chrome.runtime.lastError) {
-          resolve({ error: chrome.runtime.lastError.message });
-          return;
-        }
-        resolve({ response });
-      });
+        resolve({ error: err?.message || 'Extensao invalida' });
+      }
     });
+  }
+
+  function safeSendMessage(message) {
+    try {
+      if (!chrome?.runtime?.id) return;
+      chrome.runtime.sendMessage(message, () => {
+        if (chrome.runtime.lastError) {
+          console.warn('PageAI sendMessage error:', chrome.runtime.lastError.message);
+        }
+      });
+    } catch (err) {
+      console.warn('PageAI sendMessage failed:', err);
+    }
   }
 
   function adicionarMensagem(shadow, origem, texto) {
@@ -481,6 +500,7 @@
     const el = shadow.getElementById(id);
     if (!el) return;
     const content = el.querySelector('.msg-content');
+    if (!content) return;
     content.innerHTML = texto.replace(/\n\n/g, '<br><br>').replace(/\n/g, '<br>')
       .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
     const msgs = shadow.getElementById('pageai-messages');

@@ -171,20 +171,37 @@ async function responderGemini(pergunta, contexto, apiKey, signal) {
 }
 
 async function responderAbacus(pergunta, contexto, apiKey, signal) {
-  const response = await fetch('https://abacus.ai/api/v0/chat', {
+  const response = await fetch('https://routellm.abacus.ai/v1/chat/completions', {
     method: 'POST',
     signal,
-    headers: { 'Content-Type': 'application/json', 'x-abacus-api-key': apiKey },
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
     body: JSON.stringify({
+      model: 'gpt-4o-mini',
       messages: [
         { role: 'system', content: PROMPT_SISTEMA(contexto) },
         { role: 'user', content: pergunta }
-      ]
+      ],
+      stream: false
     }),
   });
-  const json = await response.json();
-  if (!response.ok) return { texto: `Erro Abacus: ${json.error?.message || 'Falha na API'}` };
-  return { texto: json.result.content };
+
+  let json = null;
+  let text = '';
+  try {
+    text = await response.text();
+    json = text ? JSON.parse(text) : null;
+  } catch (err) {
+    json = null;
+  }
+
+  if (!response.ok) {
+    const apiMessage = json?.error?.message || json?.message || text || 'Falha na API';
+    return { texto: `Erro Abacus (${response.status}): ${apiMessage}` };
+  }
+
+  const content = json?.choices?.[0]?.message?.content || json?.content || json?.message || text;
+  if (!content) return { texto: 'Erro Abacus: Resposta vazia.' };
+  return { texto: content };
 }
 
 async function buscarComOpenAI(pergunta, chunks, apiKey, signal) {
