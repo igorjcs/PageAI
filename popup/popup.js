@@ -1,6 +1,7 @@
 const toggle = document.getElementById('toggle');
 const apiKeyInput = document.getElementById('api-key');
 const apiProviderSelect = document.getElementById('api-provider');
+const captureModeSelect = document.getElementById('capture-mode');
 const saveBtn = document.getElementById('save-btn');
 const deleteBtn = document.getElementById('delete-btn');
 const statusEl = document.getElementById('status');
@@ -16,10 +17,11 @@ const PROVIDER_NAMES = {
   abacus: 'Abacus AI'
 };
 
+
 // Ao abrir o popup, carrega o estado salvo
 chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
   if (!tab) return;
-  chrome.storage.local.get(['apiKey', 'apiProvider', `active_${tab.id}`], (data) => {
+  chrome.storage.local.get(['apiKey', 'apiProvider', 'captureMode', `active_${tab.id}`], (data) => {
     if (data.apiKey) {
       setupSection.style.display = 'none';
       infoCard.style.display = 'block';
@@ -31,9 +33,18 @@ chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
       deleteBtn.style.display = 'none';
     }
 
+    captureModeSelect.value = data.captureMode || 'safe';
+
     const isActive = !!data[`active_${tab.id}`];
     toggle.checked = isActive;
     atualizarStatus(isActive);
+  });
+});
+
+captureModeSelect.addEventListener('change', () => {
+  const captureMode = captureModeSelect.value || 'safe';
+  chrome.storage.local.set({ captureMode }, () => {
+    mostrarMensagem('Modo de leitura atualizado.', 'success');
   });
 });
 
@@ -56,9 +67,10 @@ toggle.addEventListener('change', () => {
 saveBtn.addEventListener('click', () => {
   const key = apiKeyInput.value.trim();
   const provider = apiProviderSelect.value;
+  const captureMode = captureModeSelect.value || 'safe';
   if (!key) return mostrarMensagem('Insira uma chave válida.', 'error');
 
-  chrome.storage.local.set({ apiKey: key, apiProvider: provider }, () => {
+  chrome.storage.local.set({ apiKey: key, apiProvider: provider, captureMode }, () => {
     mostrarMensagem('Configurações salvas!', 'success');
     setupSection.style.display = 'none';
     infoCard.style.display = 'block';
@@ -89,4 +101,13 @@ function mostrarMensagem(texto, tipo) {
   msgEl.textContent = texto;
   msgEl.className = tipo;
   setTimeout(() => { msgEl.textContent = ''; msgEl.className = ''; }, 2500);
+}
+
+function getHostname(url) {
+  try {
+    const parsed = new URL(url);
+    return parsed.hostname || '';
+  } catch (err) {
+    return '';
+  }
 }

@@ -6,30 +6,31 @@
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
-      width: 300px;
+      width: 320px;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       font-size: 14px;
       color: #374151;
-      background: #f9fafb;
+      background: #f3f4f6; /* Cinza suave */
     }
 
     header {
-      padding: 14px 16px;
-      background: white;
-      border-bottom: 1px solid #e5e7eb;
+      padding: 16px;
+      background: #374151; /* Cabeçalho acinzentado */
+      border-bottom: 2px solid #2563eb; /* Azul PageAI */
       display: flex;
       align-items: center;
       justify-content: space-between;
+      color: white;
     }
 
-    header span { font-weight: 600; color: #111827; }
+    header span { font-weight: 600; color: white; }
 
     #status {
       font-size: 11px;
       padding: 3px 8px;
       border-radius: 99px;
-      background: #f3f4f6;
-      color: #6b7280;
+      background: rgba(255,255,255,0.1);
+      color: #d1d5db;
       font-weight: 500;
     }
 
@@ -39,7 +40,7 @@
       background: white;
       border-radius: 12px;
       padding: 16px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
       border: 1px solid #e5e7eb;
     }
 
@@ -64,7 +65,7 @@
       position: absolute;
       cursor: pointer;
       top: 0; left: 0; right: 0; bottom: 0;
-      background-color: #e5e7eb;
+      background-color: #d1d5db;
       transition: .4s;
       border-radius: 24px;
     }
@@ -77,7 +78,7 @@
       transition: .4s;
       border-radius: 50%;
     }
-    input:checked + .slider { background-color: #374151; }
+    input:checked + .slider { background-color: #2563eb; }
     input:checked + .slider:before { transform: translateX(20px); }
 
     .settings-section { margin-top: 16px; }
@@ -86,10 +87,10 @@
       display: block;
       margin-bottom: 6px;
       font-size: 12px;
-      font-weight: 600;
-      color: #4b5563;
+      font-weight: 700;
+      color: #374151;
       text-transform: uppercase;
-      letter-spacing: 0.025em;
+      letter-spacing: 0.05em;
     }
 
     select, input[type="text"], input[type="password"] {
@@ -98,6 +99,44 @@
       border-radius: 8px;
       border: 1px solid #d1d5db;
       font-size: 14px;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    select:focus, input:focus {
+      outline: none;
+      border-color: #2563eb;
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+    }
+
+    .btn-save {
+      width: 100%;
+      padding: 12px;
+      background-color: #2563eb;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 16px;
+      transition: background-color 0.2s;
+    }
+
+    .btn-save:hover { background-color: #1d4ed8; }
+
+    .btn-delete {
+      width: 100%;
+      padding: 10px;
+      background-color: transparent;
+      color: #ef4444;
+      border: 1px solid #fee2e2;
+      border-radius: 8px;
+      font-size: 13px;
+      cursor: pointer;
+      margin-top: 10px;
+      transition: all 0.2s;
+    }
+
+    .btn-delete:hover { background-color: #fef2f2; border-color: #fca5a5; 
       outline: none;
       margin-bottom: 12px;
       background: white;
@@ -173,6 +212,20 @@
         </label>
       </div>
       <p id="subtext">Use alt + A para alternar rápido</p>
+    </div>
+
+    <div class="settings-section">
+      <label for="capture-mode">Modo de leitura</label>
+      <select id="capture-mode">
+        <option value="safe">Seguro (somente texto visivel)</option>
+        <option value="wide">Amplo (inclui abordagem profunda)</option>
+      </select>
+      <p style="font-size: 11px; color: #6b7280; margin: 6px 0 12px;">
+        O modo Amplo tenta ler mais conteudo, mas pode incluir mais dados sensiveis.
+      </p>
+      <p style="font-size: 11px; color: #6b7280; margin: 0 0 12px;">
+        O texto enviado passa por redacao automatica de dados sensiveis.
+      </p>
     </div>
 
     <div id="setup-section" class="settings-section">
